@@ -1,191 +1,440 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kanban Estático</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kanban Pessoal — Salvo no Navegador</title>
+  <meta name="description" content="Kanban pessoal responsivo. Salva tarefas no localStorage do navegador." />
   <style>
-    /* Reset básico */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #eef2f5;
-      color: #333;
-      padding: 20px;
+    :root{
+      --purple-500: #6b21a8;
+      --purple-600: #5b1893;
+      --purple-400: #7c3aed;
+      --yellow-500: #f59e0b;
+      --bg: #fff7ed;
+      --card-bg: #fff;
+      --muted: #6b7280;
+      --black: #000;
+      --glass: rgba(255,255,255,0.7);
     }
-    .add-task {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .add-task input, .add-task select, .add-task button {
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 1em;
-    }
-    .add-task button {
-      background: #007bff;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    .add-task button:hover { background: #0056b3; }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:var(--black);background:linear-gradient(180deg,var(--bg),#fff);}
+    .app{max-width:1200px;margin:28px auto;padding:18px}
 
-    .board {
-      display: flex;
-      gap: 20px;
+    header{display:flex;align-items:center;gap:16px;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,var(--purple-500),var(--yellow-500));display:grid;place-items:center;color:#fff;font-weight:700;box-shadow:0 8px 18px rgba(107,33,168,0.18)}
+    h1{font-size:18px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:10px;align-items:center}
+    .btn{background:var(--purple-500);border:0;padding:10px 12px;border-radius:10px;color:#fff;font-weight:600;cursor:pointer;box-shadow:0 6px 12px rgba(107,33,168,0.12);transition:transform .12s ease, box-shadow .12s}
+    .btn:hover{transform:translateY(-2px)}
+    .btn.ghost{background:transparent;border:2px solid rgba(0,0,0,0.06);color:var(--black);box-shadow:none}
+    .btn.yellow{background:var(--yellow-500);color:var(--black)}
+
+    .search{padding:8px 12px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);min-width:180px}
+
+    /* Board */
+    .board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .column{background:linear-gradient(180deg,rgba(255,255,255,0.6), rgba(255,255,255,0.85));padding:14px;border-radius:14px;min-height:320px;box-shadow:0 8px 18px rgba(15,23,42,0.04);display:flex;flex-direction:column}
+    .col-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .col-title{display:flex;gap:10px;align-items:center;font-weight:700}
+    .count-badge{background:rgba(0,0,0,0.06);padding:6px 10px;border-radius:999px;font-size:12px}
+
+    .task-list{display:flex;flex-direction:column;gap:10px;min-height:120px}
+    .card{background:var(--card-bg);padding:12px;border-radius:12px;box-shadow:0 6px 12px rgba(15,23,42,0.04);cursor:grab;border-left:6px solid var(--purple-500);transition:transform .12s, box-shadow .12s}
+    .card.dragging{opacity:0.7;transform:scale(.99);box-shadow:0 18px 36px rgba(15,23,42,0.08)}
+    .card .title{font-weight:700;margin-bottom:6px}
+    .card .meta{font-size:13px;color:var(--muted)}
+    .card-actions{display:flex;gap:8px;margin-top:10px}
+    .icon-btn{background:transparent;border:0;padding:6px;border-radius:8px;cursor:pointer}
+
+    /* Add quick */
+    .add-quick{display:flex;gap:8px;margin-bottom:12px}
+    .input{padding:10px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);flex:1}
+
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);z-index:40}
+    .modal{background:linear-gradient(180deg,#fff,#fbfbff);padding:18px;border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.18);width:min(680px,94%)}
+    .row{display:flex;gap:10px}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    textarea,input[type=text],input[type=date]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);}
+
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+
+    /* responsive */
+    @media (max-width:900px){
+      .board{grid-template-columns:1fr;}
+      header{flex-direction:column;align-items:flex-start;gap:12px}
+      .controls{width:100%;justify-content:space-between}
     }
-    .column {
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      max-height: 80vh;
-    }
-    .column-header {
-      padding: 15px;
-      font-size: 1.2em;
-      border-bottom: 1px solid #ddd;
-      text-align: center;
-      background: #f7f7f7;
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
-    }
-    .task-list {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-    }
-    .task {
-      position: relative;
-      background: #fff;
-      margin-bottom: 12px;
-      padding: 12px 40px 12px 12px;
-      border-left: 5px solid #6c757d;
-      border-radius: 4px;
-      cursor: grab;
-      transition: box-shadow 0.2s;
-    }
-    .task:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-    .task.dragging { opacity: 0.5; }
-    .task.low { border-left-color: #28a745; }
-    .task.medium { border-left-color: #fd7e14; }
-    .task.high { border-left-color: #dc3545; }
-    .delete-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: transparent;
-      border: none;
-      font-size: 1.2em;
-      color: #888;
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-    .delete-btn:hover { color: #dc3545; }
+
+    /* small helpers */
+    .muted{color:var(--muted)}
+    .tag{display:inline-block;padding:6px 8px;border-radius:999px;font-weight:700;font-size:12px}
+    .tag.purple{background:linear-gradient(90deg,var(--purple-600),var(--purple-400));color:#fff}
+    .tag.yellow{background:var(--yellow-500);color:var(--black)}
+
+    .empty{opacity:.6;padding:12px;border-radius:8px;background:linear-gradient(90deg,rgba(0,0,0,0.02),transparent);text-align:center}
+
+    /* move controls for mobile */
+    .move-row{display:flex;gap:6px}
+    .move-row button{padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:transparent}
   </style>
 </head>
 <body>
-  <div class="add-task">
-    <input type="text" id="newTaskInput" placeholder="Nova tarefa..." />
-    <select id="prioritySelect">
-      <option value="low">Baixa (verde)</option>
-      <option value="medium">Média (laranja)</option>
-      <option value="high">Alta (vermelho)</option>
-    </select>
-    <button id="addTaskBtn">Adicionar</button>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">K</div>
+        <div>
+          <h1>Kanban Pessoal</h1>
+          <p class="lead">Salvo automaticamente no seu navegador — privado e simples.</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="search" class="search" placeholder="Buscar tarefas..." />
+        <button id="btnAdd" class="btn">+ Nova tarefa</button>
+        <button id="btnExport" class="btn ghost">Exportar</button>
+        <button id="btnImport" class="btn ghost">Importar</button>
+      </div>
+    </header>
+
+    <!-- quick add -->
+    <div class="add-quick">
+      <input id="quickTitle" class="input" placeholder="Adicionar tarefa rápida..." />
+      <button id="btnQuickAdd" class="btn yellow">Adicionar</button>
+    </div>
+
+    <main class="board" id="board">
+      <section class="column" data-status="todo">
+        <div class="col-header">
+          <div class="col-title"><div class="tag purple">A Fazer</div></div>
+          <div class="count-badge" id="count-todo">0</div>
+        </div>
+        <div class="task-list" id="list-todo"></div>
+      </section>
+
+      <section class="column" data-status="doing">
+        <div class="col-header">
+          <div class="col-title"><div class="tag yellow">Fazendo</div></div>
+          <div class="count-badge" id="count-doing">0</div>
+        </div>
+        <div class="task-list" id="list-doing"></div>
+      </section>
+
+      <section class="column" data-status="done">
+        <div class="col-header">
+          <div class="col-title"><div class="tag purple">Concluído</div></div>
+          <div class="count-badge" id="count-done">0</div>
+        </div>
+        <div class="task-list" id="list-done"></div>
+      </section>
+    </main>
+
+    <footer>
+      <small>Deslize ou arraste para mover — em dispositivos móveis use os botões de mover. Dados salvos em <code>localStorage</code>.</small>
+    </footer>
   </div>
-  <div class="board">
-    <div class="column"><div class="column-header">A Fazer</div><div class="task-list" id="todo" data-status="todo"></div></div>
-    <div class="column"><div class="column-header">Fazendo</div><div class="task-list" id="doing" data-status="doing"></div></div>
-    <div class="column"><div class="column-header">Feito</div><div class="task-list" id="done" data-status="done"></div></div>
+
+  <!-- Modal -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3 id="modalTitle">Nova tarefa</h3>
+      <div style="margin-top:10px">
+        <label>Título</label>
+        <input id="taskTitle" type="text" />
+      </div>
+      <div style="margin-top:10px">
+        <label>Descrição</label>
+        <textarea id="taskDesc" rows="3"></textarea>
+      </div>
+      <div style="margin-top:10px" class="row">
+        <div style="flex:1">
+          <label>Status</label>
+          <select id="taskStatus" style="padding:10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);width:100%">
+            <option value="todo">A Fazer</option>
+            <option value="doing">Fazendo</option>
+            <option value="done">Concluído</option>
+          </select>
+        </div>
+        <div style="width:160px">
+          <label>Data (opcional)</label>
+          <input type="date" id="taskDate" />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button id="btnCancel" class="btn ghost">Cancelar</button>
+        <button id="btnSave" class="btn">Salvar</button>
+      </div>
+    </div>
   </div>
+
+  <input id="fileImport" type="file" accept="application/json" style="display:none" />
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('✅ DOM pronto, inicializando Kanban');
-      const input = document.getElementById('newTaskInput');
-      const prioritySelect = document.getElementById('prioritySelect');
-      const addBtn = document.getElementById('addTaskBtn');
-      const lists = document.querySelectorAll('.task-list');
+    // LocalStorage key
+    const STORAGE_KEY = 'kanban_tasks_v1';
 
-      let tasks = JSON.parse(localStorage.getItem('kanbanTasks') || '[]');
-      console.log('👉 tarefas carregadas de localStorage:', tasks);
+    // State
+    let tasks = []; // {id,title,desc,status,date,createdAt}
+    let dragId = null;
+    let editingId = null;
 
-      function saveTasks() {
-        console.log('💾 salvando tarefas:', tasks);
-        localStorage.setItem('kanbanTasks', JSON.stringify(tasks));
+    // Elements
+    const listTodo = document.getElementById('list-todo');
+    const listDoing = document.getElementById('list-doing');
+    const listDone = document.getElementById('list-done');
+    const countTodo = document.getElementById('count-todo');
+    const countDoing = document.getElementById('count-doing');
+    const countDone = document.getElementById('count-done');
+    const modal = document.getElementById('modal');
+    const btnAdd = document.getElementById('btnAdd');
+    const btnSave = document.getElementById('btnSave');
+    const btnCancel = document.getElementById('btnCancel');
+    const taskTitle = document.getElementById('taskTitle');
+    const taskDesc = document.getElementById('taskDesc');
+    const taskStatus = document.getElementById('taskStatus');
+    const taskDate = document.getElementById('taskDate');
+    const modalTitle = document.getElementById('modalTitle');
+    const searchInput = document.getElementById('search');
+    const quickTitle = document.getElementById('quickTitle');
+    const btnQuickAdd = document.getElementById('btnQuickAdd');
+    const btnExport = document.getElementById('btnExport');
+    const btnImport = document.getElementById('btnImport');
+    const fileImport = document.getElementById('fileImport');
+
+    // Helpers
+    function uid(){return Date.now().toString(36) + Math.random().toString(36).slice(2,8)}
+
+    function save(){
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      }catch(e){
+        console.error('Falha ao salvar',e);
       }
-
-      function createTaskElement(task) {
-        const div = document.createElement('div');
-        div.className = `task ${task.priority}`;
-        div.draggable = true;
-        div.textContent = task.content;
-        div.dataset.id = task.id;
-
-        const btn = document.createElement('button');
-        btn.className = 'delete-btn';
-        btn.innerHTML = '&times;';
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          tasks = tasks.filter(t => t.id !== task.id);
-          saveTasks();
-          renderTasks();
-        });
-        div.appendChild(btn);
-
-        div.addEventListener('dragstart', () => div.classList.add('dragging'));
-        div.addEventListener('dragend', () => div.classList.remove('dragging'));
-        return div;
+    }
+    function load(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        tasks = raw ? JSON.parse(raw) : [];
+      }catch(e){
+        tasks = [];
       }
+    }
 
-      function renderTasks() {
-        lists.forEach(list => list.innerHTML = '');
-        tasks.forEach(task => {
-          const el = createTaskElement(task);
-          document.getElementById(task.status).appendChild(el);
-        });
-      }
+    function createCard(task){
+      const el = document.createElement('article');
+      el.className = 'card';
+      el.draggable = true;
+      el.dataset.id = task.id;
 
-      addBtn.addEventListener('click', () => {
-        const content = input.value.trim(); if (!content) return;
-        const newTask = { id: Date.now().toString(), content, status: 'todo', priority: prioritySelect.value };
-        tasks.push(newTask);
-        saveTasks(); renderTasks(); input.value = '';
+      // left border color depending on status
+      if(task.status === 'doing') el.style.borderLeftColor = 'var(--yellow-500)';
+      if(task.status === 'done') el.style.borderLeftColor = 'rgba(107,33,168,0.5)';
+
+      el.innerHTML = `
+        <div class="title">${escapeHtml(task.title)}</div>
+        <div class="meta">${task.desc ? escapeHtml(task.desc) : '<span class="muted">(sem descrição)</span>'} ${task.date ? '<span style="display:block;margin-top:6px;font-size:12px;color:var(--muted)">Prazo: '+escapeHtml(task.date)+'</span>' : ''}</div>
+        <div class="card-actions">
+          <button class="icon-btn" data-action="edit" title="Editar">✏️</button>
+          <button class="icon-btn" data-action="delete" title="Excluir">🗑️</button>
+          <div style="flex:1"></div>
+          <div class="move-row">
+            <button data-action="left" title="Mover para esquerda">◀️</button>
+            <button data-action="right" title="Mover para direita">▶️</button>
+          </div>
+        </div>
+      `;
+
+      // events
+      el.addEventListener('dragstart', e => {
+        dragId = task.id;
+        e.dataTransfer.setData('text/plain', task.id);
+        el.classList.add('dragging');
+      });
+      el.addEventListener('dragend', e => { dragId = null; el.classList.remove('dragging'); });
+
+      // click actions
+      el.addEventListener('click', e => {
+        const action = e.target.closest('[data-action]')?.dataset.action;
+        if(!action) return;
+        if(action === 'edit') openEdit(task.id);
+        if(action === 'delete') removeTask(task.id);
+        if(action === 'left') moveTaskLeft(task.id);
+        if(action === 'right') moveTaskRight(task.id);
       });
 
-      lists.forEach(list => {
-        list.addEventListener('dragover', e => {
-          e.preventDefault();
-          const dragging = document.querySelector('.dragging');
-          const after = getDragAfterElement(list, e.clientY);
-          if (!after) list.appendChild(dragging); else list.insertBefore(dragging, after);
-        });
-        list.addEventListener('drop', () => {
-          const dragging = document.querySelector('.dragging');
-          const id = dragging.dataset.id;
-          const status = list.dataset.status;
-          tasks = tasks.map(t => t.id === id ? { ...t, status } : t);
-          saveTasks();
-        });
-      });
+      return el;
+    }
 
-      function getDragAfterElement(container, y) {
-        const elements = [...container.querySelectorAll('.task:not(.dragging)')];
-        return elements.reduce((closest, child) => {
-          const box = child.getBoundingClientRect();
-          const offset = y - box.top - box.height / 2;
-          return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    function render(){
+      // filter
+      const q = (searchInput.value || '').toLowerCase().trim();
+      [listTodo,listDoing,listDone].forEach(l=>l.innerHTML='');
+
+      const todo = tasks.filter(t=>t.status==='todo');
+      const doing = tasks.filter(t=>t.status==='doing');
+      const done = tasks.filter(t=>t.status==='done');
+
+      const renderList = (arr, container)=>{
+        if(arr.length === 0){ container.innerHTML = '<div class="empty">Sem tarefas</div>'; return; }
+        arr.forEach(t=>{
+          if(q && !(t.title.toLowerCase().includes(q) || (t.desc||'').toLowerCase().includes(q))) return;
+          container.appendChild(createCard(t));
+        });
       }
 
-      renderTasks();
+      renderList(todo, listTodo);
+      renderList(doing, listDoing);
+      renderList(done, listDone);
+
+      countTodo.textContent = todo.length;
+      countDoing.textContent = doing.length;
+      countDone.textContent = done.length;
+    }
+
+    function addTask(title, desc='', status='todo', date=''){
+      const t = {id:uid(), title:title||'Sem título', desc:desc||'', status, date:date||'', createdAt:Date.now()};
+      tasks.push(t);
+      save(); render();
+    }
+    function openEdit(id){
+      const t = tasks.find(x=>x.id===id);
+      if(!t) return;
+      editingId = id;
+      modalTitle.textContent = 'Editar tarefa';
+      taskTitle.value = t.title;
+      taskDesc.value = t.desc || '';
+      taskStatus.value = t.status;
+      taskDate.value = t.date || '';
+      showModal();
+    }
+    function removeTask(id){
+      if(!confirm('Excluir esta tarefa?')) return;
+      tasks = tasks.filter(x=>x.id!==id);
+      save(); render();
+    }
+    function moveTaskLeft(id){
+      const t = tasks.find(x=>x.id===id); if(!t) return;
+      if(t.status==='doing') t.status='todo'; else if(t.status==='done') t.status='doing';
+      save(); render();
+    }
+    function moveTaskRight(id){
+      const t = tasks.find(x=>x.id===id); if(!t) return;
+      if(t.status==='todo') t.status='doing'; else if(t.status==='doing') t.status='done';
+      save(); render();
+    }
+
+    // modal
+    function showModal(){ modal.style.display='flex'; taskTitle.focus(); }
+    function hideModal(){ modal.style.display='none'; editingId = null; modalTitle.textContent='Nova tarefa'; taskTitle.value=''; taskDesc.value=''; taskStatus.value='todo'; taskDate.value=''; }
+
+    // save from modal
+    btnSave.addEventListener('click', ()=>{
+      const title = taskTitle.value.trim();
+      const desc = taskDesc.value.trim();
+      const status = taskStatus.value;
+      const date = taskDate.value;
+      if(!title){ alert('Digite um título.'); taskTitle.focus(); return; }
+      if(editingId){
+        const t = tasks.find(x=>x.id===editingId);
+        if(t){ t.title=title; t.desc=desc; t.status=status; t.date=date; }
+      } else {
+        addTask(title,desc,status,date);
+      }
+      save(); render(); hideModal();
     });
+    btnCancel.addEventListener('click', hideModal);
+
+    // open new
+    btnAdd.addEventListener('click', ()=>{ editingId = null; modalTitle.textContent='Nova tarefa'; showModal(); });
+
+    // quick add
+    btnQuickAdd.addEventListener('click', ()=>{
+      const t = quickTitle.value.trim(); if(!t) return; addTask(t,'','todo',''); quickTitle.value='';
+    });
+    quickTitle.addEventListener('keydown', e=>{ if(e.key==='Enter'){ btnQuickAdd.click(); } });
+
+    // search
+    searchInput.addEventListener('input', render);
+
+    // drag & drop on columns
+    document.querySelectorAll('.column').forEach(col=>{
+      col.addEventListener('dragover', e=>{
+        e.preventDefault();
+        const afterElement = getDragAfterElement(col, e.clientY);
+        const list = col.querySelector('.task-list');
+        // show placeholder logic: not using placeholder element - will append on drop
+      });
+      col.addEventListener('drop', e=>{
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain') || dragId;
+        const targetStatus = col.dataset.status;
+        const t = tasks.find(x=>x.id===id);
+        if(!t) return;
+        t.status = targetStatus;
+        save(); render();
+      });
+    });
+
+    function getDragAfterElement(container, y){
+      const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height/2;
+        if(offset < 0 && offset > closest.offset) return { offset, element: child };
+        return closest;
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // export/import
+    btnExport.addEventListener('click', ()=>{
+      const data = JSON.stringify(tasks, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'kanban-export.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    btnImport.addEventListener('click', ()=> fileImport.click());
+    fileImport.addEventListener('change', async (ev)=>{
+      const f = ev.target.files[0]; if(!f) return; const txt = await f.text(); try{ const parsed = JSON.parse(txt); if(!Array.isArray(parsed)) throw new Error('Formato inválido'); if(confirm('Substituir seu quadro atual pelos dados importados?')){ tasks = parsed; save(); render(); } }catch(e){ alert('Arquivo inválido'); }
+      fileImport.value='';
+    });
+
+    // keyboard: N opens new
+    window.addEventListener('keydown', e=>{
+      if(e.key === 'n' && !modal.style.display){ showModal(); }
+    });
+
+    // utility escape
+    function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // initial load
+    load(); render();
+
+    // small tip: clear storage on longpress of logo
+    document.querySelector('.logo').addEventListener('dblclick', ()=>{
+      if(confirm('Redefinir e limpar todas as tarefas?')){ tasks=[]; save(); render(); }
+    });
+
+    // touch-friendly: allow tapping card to open edit (for mobile)
+    document.addEventListener('click', e=>{
+      const card = e.target.closest('.card');
+      if(!card) return;
+      // if clicked not on a button
+      if(!e.target.closest('[data-action]')){
+        openEdit(card.dataset.id);
+      }
+    });
+
+    // accessibility: announce count updates (simple)
+    const counts = [countTodo,countDoing,countDone];
+    const obs = new MutationObserver(()=>{/*no-op but useful for screen readers in some contexts*/});
+    counts.forEach(c=>obs.observe(c,{childList:true}));
   </script>
 </body>
 </html>
